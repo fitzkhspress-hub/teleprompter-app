@@ -441,9 +441,8 @@
         class TeleprompterApp {
             constructor() {
                 this.mode = null;
-                this.sessionId = this.generateSessionId();
+                this.sessionId = 'teleprompter_default'; // Single session for everyone
                 this.script = localStorage.getItem('teleprompter_script') || '';
-                this.serverUrl = localStorage.getItem('teleprompter_server') || 'http://localhost:8000';
                 this.scrollPosition = 0;
                 this.isPlaying = false;
                 this.scrollSpeed = 1;
@@ -451,13 +450,6 @@
                 this.lastSyncTime = Date.now();
                 this.isMirrored = localStorage.getItem('teleprompter_mirror') === 'true' || false;
                 this.init();
-            }
-
-            generateSessionId() {
-                return localStorage.getItem('teleprompter_session') || (
-                    localStorage.setItem('teleprompter_session', 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9)),
-                    localStorage.getItem('teleprompter_session')
-                );
             }
 
             init() {
@@ -603,7 +595,7 @@
                             <h1>📡 Control Panel</h1>
                             <div style="display: flex; gap: 16px; align-items: center;">
                                 <div class="session-info">
-                                    <span class="sync-indicator"></span>Session: ${this.sessionId.substr(-8)}
+                                    <span class="sync-indicator"></span>Connected
                                 </div>
                                 <button class="back-btn" onclick="app.setMode(null)">← Back</button>
                             </div>
@@ -688,7 +680,7 @@
                             ${this.isConnected ? 'Synced' : 'Connecting...'}
                         </div>
                         <div class="footer-info">
-                            Session: ${this.sessionId.substr(-8)} | Font size: use browser zoom
+                            All devices synced automatically
                         </div>
                     </div>
                 `;
