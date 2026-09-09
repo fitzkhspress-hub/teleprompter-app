@@ -15,7 +15,7 @@ app.use(express.static('public'));
 
 // Serve index.html at root
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // Store active sessions and their state
@@ -249,7 +249,7 @@ server.listen(PORT, () => {
 
 // Catch-all route - serve index.html for any unmatched routes
 app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // Graceful shutdown
