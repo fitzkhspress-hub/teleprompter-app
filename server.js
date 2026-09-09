@@ -227,6 +227,11 @@ app.get('/api/health', (req, res) => {
     });
 });
 
+// Catch-all route - serve index.html for any unmatched routes
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 // Cleanup old sessions every 10 minutes
 setInterval(() => {
     const now = Date.now();
@@ -245,11 +250,6 @@ server.listen(PORT, () => {
     console.log(`Teleprompter server running on port ${PORT}`);
     console.log(`WebSocket endpoint: ws://localhost:${PORT}`);
     console.log(`REST API: http://localhost:${PORT}/api`);
-});
-
-// Catch-all route - serve index.html for any unmatched routes
-app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // Graceful shutdown
