@@ -350,12 +350,13 @@
             transform: translateX(-50%);
             display: flex;
             gap: 12px;
-            background: rgba(0, 0, 0, 0.7);
-            padding: 12px 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 16px 20px;
             border-radius: 8px;
             opacity: 0;
             transition: opacity 0.3s ease;
             pointer-events: none;
+            max-width: 90vw;
         }
 
         .teleprompter-screen:hover .display-controls {
@@ -364,7 +365,7 @@
         }
 
         .display-controls button {
-            padding: 8px 12px;
+            padding: 10px 14px;
             background: #667eea;
             color: white;
             border: none;
@@ -372,11 +373,21 @@
             cursor: pointer;
             font-size: 12px;
             font-weight: 600;
-            transition: background 0.2s ease;
+            transition: all 0.2s ease;
+            white-space: nowrap;
         }
 
         .display-controls button:hover {
             background: #5568d3;
+            transform: translateY(-2px);
+        }
+
+        .display-controls button:active {
+            transform: translateY(0);
+        }
+
+        .display-info-top {
+            font-size: 12px !important;
         }
 
         .display-status {
@@ -467,6 +478,9 @@
                 this.scrollSpeed = 1;
                 this.isConnected = false;
                 this.displayCount = 0;
+                this.isMirrored = localStorage.getItem('teleprompter_mirror') === 'true' || false;
+                this.fontSize = parseInt(localStorage.getItem('teleprompter_fontsize')) || 42;
+                this.savedScripts = this.loadSavedScripts();
                 this.ws = null;
                 this.clientType = null;
                 this.useWebSocket = true;
@@ -474,16 +488,31 @@
                 this.init();
             }
 
+            loadSavedScripts() {
+                const saved = localStorage.getItem('teleprompter_saved_scripts');
+                return saved ? JSON.parse(saved) : [];
+            }
+
+            persistSavedScripts() {
+                localStorage.setItem('teleprompter_saved_scripts', JSON.stringify(this.savedScripts));
+            }
+
             generateSessionId() {
                 if (typeof localStorage !== 'undefined') {
                     let sessionId = localStorage.getItem('teleprompter_session');
                     if (!sessionId) {
-                        sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                        // Generate short, easy-to-type session code (6 uppercase chars)
+                        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // No 0, 1, I, O to avoid confusion
+                        let code = '';
+                        for (let i = 0; i < 6; i++) {
+                            code += chars.charAt(Math.floor(Math.random() * chars.length));
+                        }
+                        sessionId = code;
                         localStorage.setItem('teleprompter_session', sessionId);
                     }
                     return sessionId;
                 }
-                return 'session_' + Date.now();
+                return 'TEMP' + Math.random().toString(36).substr(2, 4).toUpperCase();
             }
 
             getServerUrl() {
@@ -638,28 +667,31 @@
                 const app = document.getElementById('app');
                 app.innerHTML = `
                     <div class="mode-selection">
-                        <h1>📡 Join Session</h1>
-                        <p>Enter the session ID from the control device</p>
-                        <div style="background: rgba(255,255,255,0.1); padding: 32px; border-radius: 12px; max-width: 400px;">
-                            <div style="margin-bottom: 16px;">
-                                <label style="display: block; font-size: 13px; margin-bottom: 8px; opacity: 0.8;">Your Current Session:</label>
-                                <code style="background: rgba(0,0,0,0.3); padding: 12px; border-radius: 6px; font-family: monospace; font-size: 14px; display: block; text-align: center; word-break: break-all; letter-spacing: 2px;">${this.sessionId}</code>
+                        <h1>📡 Join Display Session</h1>
+                        <p>Enter the 6-letter code from the control device</p>
+                        <div style="background: rgba(255,255,255,0.1); padding: 40px; border-radius: 12px; max-width: 450px;">
+                            <div style="margin-bottom: 24px; background: rgba(0,0,0,0.3); padding: 20px; border-radius: 8px;">
+                                <label style="display: block; font-size: 12px; margin-bottom: 12px; opacity: 0.9; text-transform: uppercase; letter-spacing: 1px;">This Device's Session Code</label>
+                                <div style="font-size: 48px; font-weight: 700; font-family: monospace; text-align: center; letter-spacing: 8px; word-spacing: 20px;">${this.sessionId}</div>
+                                <p style="font-size: 11px; text-align: center; margin-top: 8px; opacity: 0.7;">Use this if you're the Control device</p>
                             </div>
-                            <div style="margin-bottom: 16px; border-top: 1px solid rgba(255,255,255,0.2); border-bottom: 1px solid rgba(255,255,255,0.2); padding: 16px 0;">
-                                <label style="display: block; font-size: 13px; margin-bottom: 8px; opacity: 0.8;">Or paste control device's session:</label>
-                                <input type="text" id="sessionInput" placeholder="Paste session ID from control device" 
-                                    style="width: 100%; padding: 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.1); color: white; font-family: monospace; font-size: 14px; text-align: center;">
+                            
+                            <div style="border-top: 1px solid rgba(255,255,255,0.2); border-bottom: 1px solid rgba(255,255,255,0.2); padding: 24px 0; margin: 24px 0;">
+                                <label style="display: block; font-size: 12px; margin-bottom: 12px; opacity: 0.9; text-transform: uppercase; letter-spacing: 1px;">Join an Existing Session</label>
+                                <p style="font-size: 12px; margin-bottom: 16px; opacity: 0.8;">Read the 6-letter code from the control device screen and type it below:</p>
+                                <input type="text" id="sessionInput" placeholder="Type 6-letter code (e.g., BEAM42)" 
+                                    maxlength="6"
+                                    oninput="this.value = this.value.toUpperCase()"
+                                    style="width: 100%; padding: 16px; border-radius: 6px; border: 2px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.1); color: white; font-family: monospace; font-size: 24px; text-align: center; letter-spacing: 4px; font-weight: 600;">
                             </div>
-                            <button onclick="app.joinSession()" style="width: 100%; padding: 14px; background: #667eea; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 16px; transition: background 0.2s; margin-bottom: 12px;">
-                                Join as Display
+                            
+                            <button onclick="app.joinSession()" style="width: 100%; padding: 16px; background: #667eea; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 16px; transition: all 0.2s; margin-bottom: 12px;">
+                                ✓ Join as Display
                             </button>
-                            <button onclick="app.setMode(null)" style="width: 100%; padding: 12px; background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.3); border-radius: 6px; cursor: pointer; font-size: 14px;">
-                                Back
+                            <button onclick="app.setMode(null)" style="width: 100%; padding: 14px; background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.3); border-radius: 6px; cursor: pointer; font-size: 14px; transition: all 0.2s;">
+                                ← Back
                             </button>
                         </div>
-                        <p style="margin-top: 24px; font-size: 12px; opacity: 0.7; max-width: 400px; text-align: center;">
-                            💡 Tip: Share the session ID with other display devices so they automatically sync
-                        </p>
                     </div>
                 `;
                 setTimeout(() => {
@@ -765,6 +797,84 @@
                 }
             }
 
+            toggleMirror() {
+                this.isMirrored = !this.isMirrored;
+                if (typeof localStorage !== 'undefined') {
+                    localStorage.setItem('teleprompter_mirror', this.isMirrored);
+                }
+                this.render();
+            }
+
+            changeFontSize(delta) {
+                this.fontSize = Math.max(20, Math.min(80, this.fontSize + delta));
+                if (typeof localStorage !== 'undefined') {
+                    localStorage.setItem('teleprompter_fontsize', this.fontSize);
+                }
+                this.render();
+            }
+
+            saveScript(name) {
+                if (!name || !name.trim()) {
+                    alert('Please enter a script name');
+                    return;
+                }
+
+                const scriptEntry = {
+                    id: Date.now(),
+                    name: name.trim(),
+                    content: this.script,
+                    savedAt: new Date().toLocaleString()
+                };
+
+                // Check if name already exists
+                const existingIndex = this.savedScripts.findIndex(s => s.name.toLowerCase() === name.toLowerCase());
+                if (existingIndex >= 0) {
+                    if (confirm(`Script "${name}" already exists. Overwrite?`)) {
+                        this.savedScripts[existingIndex] = scriptEntry;
+                    } else {
+                        return;
+                    }
+                } else {
+                    this.savedScripts.push(scriptEntry);
+                }
+
+                this.persistSavedScripts();
+                alert(`Script "${name}" saved! ✓`);
+                this.render();
+            }
+
+            loadScript(id) {
+                const scriptEntry = this.savedScripts.find(s => s.id === id);
+                if (scriptEntry) {
+                    this.script = scriptEntry.content;
+                    localStorage.setItem('teleprompter_script', this.script);
+                    this.broadcast();
+                    this.render();
+                }
+            }
+
+            deleteScript(id) {
+                const scriptEntry = this.savedScripts.find(s => s.id === id);
+                if (scriptEntry && confirm(`Delete "${scriptEntry.name}"?`)) {
+                    this.savedScripts = this.savedScripts.filter(s => s.id !== id);
+                    this.persistSavedScripts();
+                    this.render();
+                }
+            }
+
+            downloadScript(id) {
+                const scriptEntry = this.savedScripts.find(s => s.id === id);
+                if (scriptEntry) {
+                    const element = document.createElement('a');
+                    element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(scriptEntry.content));
+                    element.setAttribute('download', `${scriptEntry.name}.txt`);
+                    element.style.display = 'none';
+                    document.body.appendChild(element);
+                    element.click();
+                    document.body.removeChild(element);
+                }
+            }
+
             render() {
                 const app = document.getElementById('app');
 
@@ -772,7 +882,7 @@
                     app.innerHTML = `
                         <div class="mode-selection">
                             <h1>📺 Teleprompter</h1>
-                            <p>Choose your role to get started</p>
+                            <p>Choose your role</p>
                             <div class="mode-buttons">
                                 <button class="mode-btn" onclick="app.setMode('control')">
                                     <div class="mode-btn-icon">🎮</div>
@@ -783,10 +893,10 @@
                                     <div>Display</div>
                                 </button>
                             </div>
-                            <div style="margin-top: 32px; text-align: center; color: rgba(255,255,255,0.7); font-size: 13px;">
-                                <p>This device's session: <code style="background: rgba(0,0,0,0.3); padding: 4px 8px; border-radius: 4px; font-family: monospace; font-weight: 600;">${this.sessionId.substr(-12)}</code></p>
-                                <p style="font-size: 11px; margin-top: 6px; opacity: 0.8;">Control: uses this session ID automatically</p>
-                                <p style="font-size: 11px; opacity: 0.8;">Display: paste the control device's session ID to sync</p>
+                            <div style="margin-top: 40px; text-align: center; background: rgba(0,0,0,0.3); padding: 20px; border-radius: 8px; max-width: 300px; margin-left: auto; margin-right: auto;">
+                                <p style="font-size: 11px; opacity: 0.8; margin: 0 0 8px 0; text-transform: uppercase; letter-spacing: 1px;">Session Code</p>
+                                <p style="font-size: 36px; font-weight: 700; margin: 0; font-family: monospace; letter-spacing: 4px;">${this.sessionId}</p>
+                                <p style="font-size: 10px; opacity: 0.7; margin: 8px 0 0 0;">Display devices type this code to join</p>
                             </div>
                         </div>
                     `;
@@ -821,13 +931,15 @@
 
                         <div class="config-section" style="background: #e8eaff; border-bottom-color: #d9e1ff;">
                             <h3 style="color: #3c366b;">📤 Share with Display Devices</h3>
-                            <div style="display: flex; gap: 8px; align-items: center;">
-                                <input type="text" value="${this.sessionId}" readonly style="flex: 1; padding: 10px; background: white; border: 1px solid #d9e1ff; border-radius: 6px; font-family: monospace; font-size: 13px; color: #333;">
-                                <button onclick="navigator.clipboard.writeText('${this.sessionId}'); alert('Session ID copied to clipboard!')" style="padding: 10px 16px; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; white-space: nowrap;">
-                                    📋 Copy
-                                </button>
+                            <div style="background: white; padding: 16px; border-radius: 8px; margin-bottom: 12px; text-align: center;">
+                                <p style="font-size: 11px; color: #666; margin: 0 0 8px 0; text-transform: uppercase; letter-spacing: 1px;">Session Code</p>
+                                <p style="font-size: 32px; font-weight: 700; margin: 0; font-family: monospace; letter-spacing: 3px; color: #667eea;">${this.sessionId}</p>
+                                <p style="font-size: 10px; color: #999; margin: 8px 0 0 0;">Have displays read this code and type it in</p>
                             </div>
-                            <p style="font-size: 11px; color: #5a5a7a; margin-top: 8px;">Ask display devices to click Display mode and paste this ID to sync</p>
+                            <button onclick="navigator.clipboard.writeText('${this.sessionId}'); alert('Session code copied!')" style="width: 100%; padding: 10px 16px; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px;">
+                                📋 Copy Code
+                            </button>
+                            <p style="font-size: 11px; color: #5a5a7a; margin-top: 12px;">Display devices: Click Display mode and type this 6-letter code (no copy/paste needed)</p>
                         </div>
 
                         <div class="editor-section">
@@ -857,6 +969,33 @@
                                     value="${this.scrollSpeed}" onchange="app.updateSpeed(this.value)">
                                 <span id="speedValue" style="font-size: 12px; min-width: 30px;">${this.scrollSpeed.toFixed(1)}x</span>
                             </div>
+
+                            <div style="grid-column: 1 / -1; border-top: 1px solid #ddd; padding-top: 12px;">
+                                <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                                    <input type="text" id="scriptName" placeholder="Script name..." 
+                                        style="flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px;">
+                                    <button onclick="const name = document.getElementById('scriptName').value; app.saveScript(name); document.getElementById('scriptName').value = '';" 
+                                        class="control-btn secondary" style="white-space: nowrap;">
+                                        💾 Save
+                                    </button>
+                                </div>
+
+                                ${this.savedScripts.length > 0 ? `
+                                    <div style="background: #f9f9f9; border: 1px solid #eee; border-radius: 6px; padding: 12px; max-height: 150px; overflow-y: auto;">
+                                        <p style="font-size: 11px; font-weight: 600; margin: 0 0 8px 0; color: #666;">Saved Scripts (${this.savedScripts.length})</p>
+                                        ${this.savedScripts.map(script => `
+                                            <div style="display: flex; gap: 6px; align-items: center; padding: 6px; background: white; border-radius: 4px; margin-bottom: 6px; font-size: 12px;">
+                                                <span style="flex: 1; font-weight: 500; color: #333;">${script.name}</span>
+                                                <button onclick="app.loadScript(${script.id})" style="padding: 4px 8px; background: #10b981; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 11px;">Load</button>
+                                                <button onclick="app.downloadScript(${script.id})" style="padding: 4px 8px; background: #3b82f6; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 11px;">↓</button>
+                                                <button onclick="app.deleteScript(${script.id})" style="padding: 4px 8px; background: #ef4444; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 11px;">✕</button>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                ` : `
+                                    <p style="font-size: 12px; color: #999; text-align: center; padding: 12px 0; margin: 0;">No saved scripts yet. Save one to get started!</p>
+                                `}
+                            </div>
                         </div>
                     </div>
                 `;
@@ -865,24 +1004,33 @@
             renderDisplayMode(app) {
                 const statusClass = this.isConnected ? 'connected' : 'disconnected';
                 const statusText = this.isConnected ? 'Connected' : 'Connecting...';
+                const mirrorStyle = this.isMirrored ? 'transform: scaleX(-1);' : '';
 
                 app.innerHTML = `
                     <div class="display-mode">
                         <div class="teleprompter-screen">
-                            <div class="teleprompter-content" id="teleContent">
+                            <div class="teleprompter-content" id="teleContent" style="font-size: ${this.fontSize}px; ${mirrorStyle}">
                                 ${this.script ? this.script : '<em style="opacity: 0.5;">Waiting for script...</em>'}
                             </div>
                             <div class="display-controls">
-                                <button onclick="app.scrollUp()">↑ Scroll Up</button>
-                                <button onclick="app.scrollDown()">↓ Scroll Down</button>
-                                <button onclick="app.setMode(null)">← Exit</button>
+                                <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;">
+                                    <button onclick="app.scrollUp()">↑ Scroll</button>
+                                    <button onclick="app.scrollDown()">↓ Scroll</button>
+                                    <button onclick="app.changeFontSize(-4)" style="min-width: 40px;">A−</button>
+                                    <button onclick="app.changeFontSize(4)" style="min-width: 40px;">A+</button>
+                                    <button onclick="app.toggleMirror()" style="background: ${this.isMirrored ? '#4ade80' : '#667eea'};">🔄 Mirror</button>
+                                    <button onclick="app.setMode(null)">← Exit</button>
+                                </div>
                             </div>
                         </div>
                         <div class="display-status ${statusClass}">
                             ● ${statusText}
                         </div>
+                        <div class="display-info-top" style="position: absolute; top: 20px; left: 20px; background: rgba(0,0,0,0.7); color: white; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-family: monospace;">
+                            ${this.sessionId} | Font: ${this.fontSize}px | ${this.isMirrored ? '🔄 Mirrored' : 'Normal'}
+                        </div>
                         <div class="footer-info">
-                            Session: ${this.sessionId.substr(-8)} | Zoom: Ctrl+Plus or Cmd+Plus
+                            Use arrow buttons to adjust font (A− / A+) • Mirror for beam splitter display
                         </div>
                     </div>
                 `;
