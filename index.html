@@ -634,6 +634,53 @@
                 }
             }
 
+            showSessionInput() {
+                const app = document.getElementById('app');
+                app.innerHTML = `
+                    <div class="mode-selection">
+                        <h1>📡 Join Session</h1>
+                        <p>Enter the session ID from the control device</p>
+                        <div style="background: rgba(255,255,255,0.1); padding: 32px; border-radius: 12px; max-width: 400px;">
+                            <div style="margin-bottom: 16px;">
+                                <label style="display: block; font-size: 13px; margin-bottom: 8px; opacity: 0.8;">Your Current Session:</label>
+                                <code style="background: rgba(0,0,0,0.3); padding: 12px; border-radius: 6px; font-family: monospace; font-size: 14px; display: block; text-align: center; word-break: break-all; letter-spacing: 2px;">${this.sessionId}</code>
+                            </div>
+                            <div style="margin-bottom: 16px; border-top: 1px solid rgba(255,255,255,0.2); border-bottom: 1px solid rgba(255,255,255,0.2); padding: 16px 0;">
+                                <label style="display: block; font-size: 13px; margin-bottom: 8px; opacity: 0.8;">Or paste control device's session:</label>
+                                <input type="text" id="sessionInput" placeholder="Paste session ID from control device" 
+                                    style="width: 100%; padding: 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.1); color: white; font-family: monospace; font-size: 14px; text-align: center;">
+                            </div>
+                            <button onclick="app.joinSession()" style="width: 100%; padding: 14px; background: #667eea; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 16px; transition: background 0.2s; margin-bottom: 12px;">
+                                Join as Display
+                            </button>
+                            <button onclick="app.setMode(null)" style="width: 100%; padding: 12px; background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.3); border-radius: 6px; cursor: pointer; font-size: 14px;">
+                                Back
+                            </button>
+                        </div>
+                        <p style="margin-top: 24px; font-size: 12px; opacity: 0.7; max-width: 400px; text-align: center;">
+                            💡 Tip: Share the session ID with other display devices so they automatically sync
+                        </p>
+                    </div>
+                `;
+                setTimeout(() => {
+                    const input = document.getElementById('sessionInput');
+                    if (input) input.focus();
+                }, 100);
+            }
+
+            joinSession() {
+                const input = document.getElementById('sessionInput');
+                if (input && input.value.trim()) {
+                    // User entered a session ID - use it
+                    this.sessionId = input.value.trim();
+                    if (typeof localStorage !== 'undefined') {
+                        localStorage.setItem('teleprompter_session', this.sessionId);
+                    }
+                }
+                // Now enter display mode with the session ID (either new one or entered one)
+                this.setMode('display');
+            }
+
             setMode(mode) {
                 this.mode = mode;
                 this.clientType = mode; // 'control' or 'display'
@@ -731,10 +778,15 @@
                                     <div class="mode-btn-icon">🎮</div>
                                     <div>Control</div>
                                 </button>
-                                <button class="mode-btn" onclick="app.setMode('display')">
+                                <button class="mode-btn" onclick="app.showSessionInput()">
                                     <div class="mode-btn-icon">📡</div>
                                     <div>Display</div>
                                 </button>
+                            </div>
+                            <div style="margin-top: 32px; text-align: center; color: rgba(255,255,255,0.7); font-size: 13px;">
+                                <p>This device's session: <code style="background: rgba(0,0,0,0.3); padding: 4px 8px; border-radius: 4px; font-family: monospace; font-weight: 600;">${this.sessionId.substr(-12)}</code></p>
+                                <p style="font-size: 11px; margin-top: 6px; opacity: 0.8;">Control: uses this session ID automatically</p>
+                                <p style="font-size: 11px; opacity: 0.8;">Display: paste the control device's session ID to sync</p>
                             </div>
                         </div>
                     `;
@@ -756,7 +808,7 @@
                             <div style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
                                 <div class="session-info">
                                     <span class="status-dot" style="background: ${this.isConnected ? '#10b981' : '#ef4444'};"></span>
-                                    Session: ${this.sessionId.substr(-8)}
+                                    Session: <code style="background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 3px; font-family: monospace; cursor: pointer;" onclick="navigator.clipboard.writeText('${this.sessionId}'); alert('Session ID copied!');" title="Click to copy">${this.sessionId.substr(-8)}</code>
                                 </div>
                                 <button class="back-btn" onclick="app.setMode(null)">← Back</button>
                             </div>
@@ -765,6 +817,17 @@
                         <div class="status-message ${statusClass}">
                             <span class="status-dot"></span>
                             ${statusText}
+                        </div>
+
+                        <div class="config-section" style="background: #e8eaff; border-bottom-color: #d9e1ff;">
+                            <h3 style="color: #3c366b;">📤 Share with Display Devices</h3>
+                            <div style="display: flex; gap: 8px; align-items: center;">
+                                <input type="text" value="${this.sessionId}" readonly style="flex: 1; padding: 10px; background: white; border: 1px solid #d9e1ff; border-radius: 6px; font-family: monospace; font-size: 13px; color: #333;">
+                                <button onclick="navigator.clipboard.writeText('${this.sessionId}'); alert('Session ID copied to clipboard!')" style="padding: 10px 16px; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; white-space: nowrap;">
+                                    📋 Copy
+                                </button>
+                            </div>
+                            <p style="font-size: 11px; color: #5a5a7a; margin-top: 8px;">Ask display devices to click Display mode and paste this ID to sync</p>
                         </div>
 
                         <div class="editor-section">
