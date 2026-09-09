@@ -449,6 +449,7 @@
                 this.isConnected = false;
                 this.lastSyncTime = Date.now();
                 this.isMirrored = localStorage.getItem('teleprompter_mirror') === 'true' || false;
+                this.ws = null;
                 this.init();
             }
 
@@ -458,7 +459,12 @@
             }
 
             setupSync() {
-                // Simulate server sync - in production, connect to your WebSocket server
+                // Connect to WebSocket if mode is set
+                if (this.mode === 'control' || this.mode === 'display') {
+                    this.connectWebSocket();
+                }
+
+                // Also use localStorage as fallback for same-device testing
                 setInterval(() => {
                     if (this.mode === 'display') {
                         this.syncDisplayMode();
@@ -483,6 +489,65 @@
                 });
             }
 
+            connectWebSocket() {
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const wsUrl = `${protocol}//${window.location.host}?sessionId=${this.sessionId}&type=${this.mode}`;
+
+                try {
+                    this.ws = new WebSocket(wsUrl);
+
+                    this.ws.onopen = () => {
+                        this.isConnected = true;
+                        this.render();
+                    };
+
+                    this.ws.onmessage = (event) => {
+                        try {
+                            const message = JSON.parse(event.data);
+
+                            if (message.type === 'connected') {
+                                this.isConnected = true;
+                                if (message.currentState) {
+                                    this.script = message.currentState.script || this.script;
+                                    this.isPlaying = message.currentState.isPlaying || false;
+                                    this.scrollSpeed = message.currentState.scrollSpeed || 1;
+                                }
+                                this.render();
+                            } else if (message.type === 'sync') {
+                                if (this.mode === 'display') {
+                                    this.script = message.script || this.script;
+                                    this.isPlaying = message.isPlaying;
+                                    this.scrollSpeed = message.scrollSpeed || 1;
+
+                                    const content = document.querySelector('.teleprompter-content');
+                                    if (content && this.isPlaying) {
+                                        content.scrollTop += this.scrollSpeed * 2;
+                                    }
+                                    this.render();
+                                }
+                            }
+                        } catch (error) {
+                            console.error('Error parsing message:', error);
+                        }
+                    };
+
+                    this.ws.onerror = (error) => {
+                        console.error('WebSocket error:', error);
+                        this.isConnected = false;
+                    };
+
+                    this.ws.onclose = () => {
+                        this.isConnected = false;
+                        if (this.mode === 'control' || this.mode === 'display') {
+                            setTimeout(() => this.connectWebSocket(), 3000);
+                        }
+                    };
+                } catch (error) {
+                    console.error('Error creating WebSocket:', error);
+                    this.isConnected = false;
+                }
+            }
+
             broadcastControlData() {
                 const displayArea = document.querySelector('.script-textarea');
                 if (displayArea) {
@@ -499,7 +564,15 @@
                     timestamp: Date.now()
                 };
 
-                // Simulate sending to server
+                // Send via WebSocket if connected
+                if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                    this.ws.send(JSON.stringify({
+                        type: 'update',
+                        data: broadcastData
+                    }));
+                }
+
+                // Also broadcast via localStorage as fallback
                 localStorage.setItem('teleprompter_broadcast', JSON.stringify(broadcastData));
                 this.isConnected = true;
             }
@@ -525,6 +598,11 @@
 
             setMode(mode) {
                 this.mode = mode;
+                if (mode === 'control' || mode === 'display') {
+                    this.connectWebSocket();
+                } else if (this.ws) {
+                    this.ws.close();
+                }
                 this.render();
             }
 
